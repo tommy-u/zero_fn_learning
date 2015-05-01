@@ -1,0 +1,52 @@
+compile train.c with:
+gcc train.c -Wall -lfann -o train
+run with:
+./train <input training file> <0 for no suffle, 1 for shuffle> <num rows (start at 0th row)>
+
+
+Useful bash line for generating sets 
+for i in {0..255}; do printf "%08d\n" $(bc <<< "obase=2;$i"); done 
+#don't forget to add spaces with something like cat bin_input | sed 's/0/-1/g' > bip_inputs
+
+Note: I'm writing this after running the expts, so grains of salt and all that.
+
+The game:
+Take a boolean function, train a neural network on a subset of the rows of the table, check the network's performance on the entire function.
+
+This work:
+Num inputs/outputs:8 -> 256 rows of table
+Function: the zero function (same number output nodes as input nodes, output nodes always take value 0)
+Encoding: done for bipolar and binary input ... output is always binary. 
+Network: fann 8 input 8 output (1 computational layer, 8, 8 input perceptrons learning an output of zero for all inputs)
+Error criteria: bit fail value over all 256 rows (++1 for any of the 8 * 256 output bits that have the value 1 instead of 0)
+Training: stop only when the network has mastered the subset (bit fail on subset is 0)
+
+The Question:
+For the zero function, does it matter what subset of the rows you choose? In other words, for a given budget of rows, is there a strategy that allows you to do better than say picking the first handful of rows.
+
+Intuition:
+For a complicated function, it is clear there are better and worse choices (query based learning, hardc-core bits etc.). But for something stupid as the zero function, does it still apply? If there is structure to learning such a simple function, does it serve as a lower bound to all learning? 
+
+Camp1:
+There is no better or worse choice of such a subset. The function has a sparce spectra. The network has no conception of what a boolean function means. The network will quickly catch on that all inputs go to the same value. We expect a net trained on the first k rows to do about as well as a net trained on a random set of k rows. 
+
+Camp2:
+There are better and worse choices. The network will only do productive backprop when it encounters a mistake. We expect the function to look like steps in a bit fail vs samples graph (bin encoding first k rows) because meaningful backprop happens when new bit values are encountered. Picking rows of the table at random will do better because they will span more interesting values on average. 
+
+
+What is the difference between bin and bip encodeing?
+Intuition: BIP provides a symmetrized solution space. Some fns will be easier, some harder, but less variance. For the perceptron, we see strong preference for the zero and one functions (https://github.com/ttommyy/boolean/tree/master/2-1_nets). Maybe the fast solution times under bin are due to this in this higher D case. If all this solution space is "wasted" on the zero fn, maybe it makes learning more interesting functons harder. 
+
+Result
+Analysis to come. 
+
+IDK what to do with the fillowing. Why didn't we see this when we started with the other values. It's late. 
+Running with "hand-picked values"
+Function can be learned with just 2 rows of the table:
+0 0 0 0 0 0 0 0
+1 1 1 1 1 1 1 1
+This means these output fully specify the linear equation being performed at the output perceptrons. Given just one of them, bit fail is reduced to 8. 
+
+Next step:
+Print out rows that have a bit error for inspection. 
+Determine a metric for communicating at what point the net can be said to have mastered the overall function. 
