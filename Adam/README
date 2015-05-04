@@ -1,0 +1,29 @@
+All the behind the scenes code is in the tools directory, including the train and test code.
+
+The hope is that all you need to test is the run bash scripts right in this directory. There are two of these: run and runR. Use run for non random and runR for random table entries.
+
+To run:
+Type ./run or ./runR to see the list of arguments needed (same in both cases)
+
+example runs:
+./run 10 50 10 const0 y n 8 0 -r0,50
+will create at most (will stop earlier if one gets 0 error, specified by y flagafter function name) 5 8->8 (as specified by the 0) NNs that are allowed 10, 20, 30, 40, and 50 max epochs respectively to train on the first 50 entries of a binary representation (the n flag) of the const0 function (must correspond to a .c file of the name const0.c) with word size 8 (different word sizes, such as 16, got very slow and somewhat buggy, so I wouldn't suggest altering this) and a message will let you know where the information is saved. To create a 3D plot as I showed the other day, run gnuplot on the file created named DATA. Note that this is appended to every time a run is done, so delete it before each new one if you don't want old data hanging around. 
+
+./runR 10 50 10 shiftRight y y 8 8 -r0,50
+will create at most (will stop earlier if one gets 0 error, specified by y flagafter function name) 5 8->8->8 (as specified by the 0) NNs that are allowed 10, 20, 30, 40, and 50 max epochs respectively to train on the first RANDOMIZED 50 entries of a binary representation (the second y flag) of the shiftRight function (must correspond to a .c file of the name shiftRight.c) with word size 8 (different word sizes, such as 16, got very slow and somewhat buggy, so I wouldn't suggest altering this) and a message will let you know where the information is saved. To create a 3D plot as I showed the other day, run gnuplot on the file created named DATA. Note that this is appended to every time a run is done, so delete it before each new one if you don't want old data hanging around. 
+
+Also, in the created directory after a run will the following contents (I suggest paying most attention to the last one here):
+logs/ = what the NN reports as it is training (MSE, bit fail, epochs, etc.)
+tbls/ = table representations of the data set (always in binary) including the XOR of tables
+txts/ = same as tbls but more formatting and the bipolar representation will be shown
+bmps/ = bitmap representations of the tables in tbls/
+data/hams.dat = the collective epoch vs. hamming weight of all the NNs' tests
+data/*.data = comparison of true table and the NN table for a given number of max epochs, the most analysis is done here (number of entries/lines wrong, hamming weight, highlighted rows, distribution of bit errors)
+
+
+Mail me with any questions!
+
+P.S. the data directory contains the various DATA files that the 3D plots I showed you were created from if you are curious to take a look
+
+
+Also, the ./metaRun will run the bash script (not randomzied right now, but feel free to change that) ./run a bunch of times for different ranges. Note that this will delete the directories as it goes so as not to eating up memory, though feel free to change that as well. All that will remain after it is done is the DATA file for all the runs

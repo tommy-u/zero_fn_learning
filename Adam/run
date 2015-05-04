@@ -1,0 +1,137 @@
+#!/bin/bash
+
+start=$1
+end=$2
+inc=$3
+FUNC=$4
+[[ $5 ]] && stop=$5 || stop=n
+[[ $6 ]] && bp=$6 || bp=n
+[[ $7 ]] && WS=$7 || WS=8
+[[ $8 ]] && H=$8 || H=$WS
+[[ $9 ]] && temp=${9%%,[0-9]*} && s=${temp##-r} && e=${9##-r[0-9]*,} && printf '%s ' $e > e
+
+FUNCw=${FUNC}ws${WS}
+
+[[ "$#" < 4 ]] && 
+echo 'More arguments needed! They are as follows (according to placement, first 4 required, rest optional):' && 
+echo '1: starting number of max epochs' && 
+echo '2: ending number of max epochs' && 
+echo '3: amount to increment number of epochs by' && 
+echo '4: the function being run (e.g. shiftRightws8)' && 
+echo '5: (y/n) whether you would like to stop when a NN produces a perfect table (hw = 0)' && 
+echo '6: (y/n) whether you would like to run in bipolar mode [the NN sees (-1, 1) instead of (0, 1), though the tables are always shown as (0, 1)]' && 
+echo '7: word size (default is 8)' && 
+echo '8: number of hidden neurons (0 for no hidden layer)' &&
+echo '9: range of testing in the format: -r0,33 for testing on [0, 32]' &&
+exit 1
+
+[[ -z $4 ]] && echo 'No function specified! Example run: ./run 1 10 1 shiftRight OR (if you want to stop at a hW of 0) ./run 1 10 1 shiftRight n' && exit 1
+
+echo 'Training/testing a NN with max epochs from' $start 'to' $end 'by increments of' $inc 'on the function' $FUNC 'with a word size of' ${WS}
+[[ $r ]] && echo 'and training on [start, end):' $r || echo 'and training on the full data set'
+
+BMP=../../tools/2BMP
+
+[[ $bp == 'y' ]] && nm=bp || nm=reg
+DIR=${FUNCw}_$start-$end:$inc_${nm}_H:${H}_R:${s},${e}
+echo 'Your data will be saved in' $DIR
+
+if [[ -d $DIR ]]
+then 
+echo 'This has already been tested, what would you like to do with the old data?'
+
+options=('Move' 'Write' 'Exit')
+PS3='Your choice: '
+select opt in "${options[@]}"
+do
+    case $opt in
+	'Move') 
+	    echo 'Moving old data to' ${DIR}_old
+	    mv ${DIR} ${DIR}_old
+	    mkdir $DIR
+	    cd $DIR
+	    mkdir logs
+	    mkdir nets
+	    mkdir tbls
+	    mkdir txts
+	    mkdir bins
+	    mkdir data
+	    mkdir bmps
+	    cd ..
+	    break;;
+	'Write')
+	    echo 'Clearing out old data and writing over!'
+	    make clean DIR=${DIR} > ${FUNC}.makereport
+	    break;;
+	'Exit')
+	    echo 'Exiting now'
+	    exit 1;;
+    esac
+done
+
+else
+mkdir $DIR
+cd $DIR
+mkdir logs
+mkdir nets
+mkdir tbls
+mkdir txts
+mkdir bins
+mkdir data
+mkdir bmps
+cd ..
+fi
+
+make FUNC=${FUNC} WS=${WS} BP=${bp} >> $DIR/makereport
+
+
+for((i = $start; i <= $end; i += $inc)); 
+do
+    #Training
+    [[ $bp == 'y' ]] && 
+    ./tools/train -r ${s},${e} -n $i -s ${WS} -H $H -f ${FUNCw}_bp -a 5 > ${DIR}/logs/${FUNCw}_train$i.log || 
+    ./tools/train -r ${s},${e} -n $i -s ${WS} -H $H -f ${FUNCw} > ${DIR}/logs/${FUNCw}_train$i.log
+    
+    mv *.net $DIR/nets/
+    tail -n 1 ${DIR}/logs/${FUNCw}_train$i.log > x
+
+    #Produce Tables
+    if [[ $bp == 'y' ]]
+    then
+	./tools/test -a 2 -b -s ${WS} -f $DIR/nets/${FUNCw}_bp_$i.net > ${DIR}/${FUNCw}_epochs:$i.txt
+	./tools/format_bp -s ${WS} < $DIR/${FUNCw}_epochs:$i.txt > $DIR/tbls/${FUNCw}_epochs:$i.tbl $i;
+    else
+	./tools/test -s ${WS} -f $DIR/nets/${FUNCw}_$i.net > ${DIR}/${FUNCw}_epochs:$i.txt
+	./tools/format -s ${WS} < $DIR/${FUNCw}_epochs:$i.txt > $DIR/tbls/${FUNCw}_epochs:$i.tbl $i;
+    fi
+    mv $DIR/${FUNCw}_epochs:$i.txt $DIR/txts/
+
+    #Find XOR of the Tables
+    ./tools/xor -a ${FUNCw}.tbl -b $DIR/tbls/${FUNCw}_epochs:$i.tbl > $DIR/tbls/${FUNCw}XOR_epochs:$i.tbl; 
+    ./tools/2bin < $DIR/tbls/${FUNCw}XOR_epochs:$i.tbl > $DIR/bins/${FUNCw}XOR_epochs:$i.bin
+
+    #Analyze Table
+    ./tools/analyze -a ${FUNCw}.tbl -b $DIR/tbls/${FUNCw}_epochs:$i.tbl > $DIR/data/epochs:$i.dat
+
+    #Calculate Hamming Weights
+    ./tools/hamW -a ${FUNCw}.tbl -b  $DIR/tbls/${FUNCw}_epochs:$i.tbl > val;
+    cat x val >> $DIR/data/hams.dat;
+    cat e x val >> DATA
+    [[ $stop == 'y' ]] && [ $(cat val) == "0" ] && break;
+
+    #Produce BMPs of Tables
+    ./tools/2bin < $DIR/tbls/${FUNCw}_epochs:$i.tbl > $DIR/bins/${FUNCw}_epochs:$i.bin; 
+
+    cd $DIR/bins
+    ${BMP} -r 256 -c 16 16  ${FUNCw}_epochs:$i.bin; 
+    #mv 0_${FUNCw}_epochs:$i.bin_bs16_bi0_16x256.bmp ../bmps/${FUNCw}_epochs:$i.bmp; 
+    ${BMP} -r 256 -c 16 16  ${FUNCw}XOR_epochs:$i.bin; 
+    #mv 0_${FUNCw}XOR_epochs:$i.bin_bs16_bi0_16x256.bmp ../bmps/${FUNCw}XOR_epochs:$i.bmp; 
+    mv *.bmp ../bmps/
+    cd ../../
+
+done
+
+rm val
+rm x
+rm e

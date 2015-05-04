@@ -1,0 +1,21 @@
+#!/bin/bash
+
+[[ $1 ]] && start=$1 || start=0
+[[ $2 ]] && end=$2 || end=256
+[[ $3 ]] && inc=$3 || inc=1
+[[ $4 ]] && func=$4 || func=shiftRight
+[[ $5 ]] && low=$5 || low=10
+[[ $6 ]] && high=$6 || high=210
+[[ $7 ]] && by=$7 || by=10
+[[ $8 ]] && stop=$8 || stop=y
+[[ $9 ]] && bipolar=$9 || bipolar=n
+
+[[ $low > $high ]] && low=0
+
+for((i = $start; i < $end; i += $inc));
+do
+./run $low $high $by $func $stop $bipolar 8 8 -r0,$i
+rm -R ${func}ws8_$low-$high:*_H:*_R:0,$i
+echo 'Removed the directory'
+done
+
